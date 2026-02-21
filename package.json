@@ -1,5 +1,5 @@
 {
-  "name": "openclaw-plugin-nightshift",
+  "name": "nightshift",
   "version": "0.1.0",
   "description": "Off-hours task scheduler for OpenClaw agents. Respects user workflow by running heavy LLM processing during configurable quiet hours.",
   "main": "index.js",

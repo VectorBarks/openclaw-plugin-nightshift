@@ -1,5 +1,5 @@
 {
-  "id": "openclaw-plugin-nightshift",
+  "id": "nightshift",
   "name": "Night Shift Scheduler",
   "description": "Night shift scheduler for heavy LLM processing. Respects user workflow by running tasks during off-hours.",
   "version": "0.1.0",
