@@ -370,7 +370,9 @@ module.exports = {
                 return; // Not office hours
             }
 
-            if (state.isUserActive()) {
+            // Check if user activity should pause processing (default: true, set to false to always process)
+            const pauseOnActivity = config.processing?.pauseOnUserActivity !== false;
+            if (pauseOnActivity && state.isUserActive()) {
                 return; // User is active, don't process
             }
 
