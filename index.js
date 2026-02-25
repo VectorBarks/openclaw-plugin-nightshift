@@ -117,14 +117,14 @@ module.exports = {
                         this.lastUserActivity = saved.lastUserActivity || null;
                         this.lastMorningGreeting = saved.lastMorningGreeting || null;
                         this.processedTonight = saved.processedTonight || {};
-                        this.timezone = saved.timezone || config.schedule?.defaultOfficeHours?.timezone || 'America/Los_Angeles';
+                        this.timezone = saved.timezone || config.schedule?.processingHours?.timezone || config.schedule?.defaultOfficeHours?.timezone || 'America/Los_Angeles';
                     } else {
                         this.officeHoursActive = false;
                         this.goodNightTime = null;
                         this.lastUserActivity = null;
                         this.lastMorningGreeting = null;
                         this.processedTonight = {};
-                        this.timezone = config.schedule?.defaultOfficeHours?.timezone || 'America/Los_Angeles';
+                        this.timezone = config.schedule?.processingHours?.timezone || config.schedule?.defaultOfficeHours?.timezone || 'America/Los_Angeles';
                     }
                 } catch (e) {
                     api.logger.warn(`[NightShift:${this.agentId}] Failed to load state:`, e.message);
@@ -133,7 +133,7 @@ module.exports = {
                     this.lastUserActivity = null;
                     this.lastMorningGreeting = null;
                     this.processedTonight = {};
-                    this.timezone = config.schedule?.defaultOfficeHours?.timezone || 'America/Los_Angeles';
+                    this.timezone = config.schedule?.processingHours?.timezone || config.schedule?.defaultOfficeHours?.timezone || 'America/Los_Angeles';
                 }
             }
 
@@ -191,8 +191,8 @@ module.exports = {
                     }
                 }
 
-                // Check default time-based office hours
-                const defaultHours = config.schedule?.defaultOfficeHours;
+                // Check default time-based processing hours (renamed from defaultOfficeHours for clarity)
+                const defaultHours = config.schedule?.processingHours || config.schedule?.defaultOfficeHours;
                 if (defaultHours) {
                     const [startHour, startMin] = defaultHours.start.split(':').map(Number);
                     const [endHour, endMin] = defaultHours.end.split(':').map(Number);

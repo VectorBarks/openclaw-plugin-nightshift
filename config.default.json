@@ -2,7 +2,7 @@
   "enabled": true,
   
   "schedule": {
-    "defaultOfficeHours": {
+    "processingHours": {
       "start": "22:30",
       "end": "05:00",
       "timezone": "America/Los_Angeles"

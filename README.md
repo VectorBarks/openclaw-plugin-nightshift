@@ -12,9 +12,11 @@ Nightshift solves this by creating a clear boundary: user time is user time, and
 
 ## How It Works
 
-### Time-Based Office Hours
+### Time-Based Processing Hours
 
 By default, nightshift activates between 10:30 PM and 5:00 AM Pacific. During this window, queued tasks get processed in priority order. Outside this window, nothing runs. Both the start time, end time, and timezone are configurable.
+
+**Note:** The config key is `processingHours` (renamed from `defaultOfficeHours` for clarity). The old key still works for backwards compatibility.
 
 ### Phrase-Triggered Activation
 
@@ -119,7 +121,7 @@ Override any defaults in your `openclaw.json` plugin config:
   "plugins": {
     "nightshift": {
       "schedule": {
-        "defaultOfficeHours": {
+        "processingHours": {
           "start": "23:00",
           "end": "06:00"
         },
@@ -134,9 +136,9 @@ Override any defaults in your `openclaw.json` plugin config:
 
 | Setting | Default | What It Does |
 |---|---|---|
-| `defaultOfficeHours.start` | `"22:30"` | Clock time that starts the processing window |
-| `defaultOfficeHours.end` | `"05:00"` | Clock time that ends it |
-| `defaultOfficeHours.timezone` | `"America/Los_Angeles"` | Timezone for the clock-based window |
+| `processingHours.start` | `"22:30"` | Clock time that starts the processing window (overnight) |
+| `processingHours.end` | `"05:00"` | Clock time that ends it |
+| `processingHours.timezone` | `"America/Los_Angeles"` | Timezone for the clock-based window |
 | `goodNightBufferMinutes` | `30` | Minutes to wait after a bedtime phrase before starting tasks |
 | `userActiveThresholdMinutes` | `5` | Minutes of silence before user is considered inactive |
 
