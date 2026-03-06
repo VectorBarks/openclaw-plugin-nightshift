@@ -321,7 +321,7 @@ module.exports = {
             isUserActive: (agentId) => getAgentState(agentId).isUserActive()
         };
         api.nightshift = nightshiftApi;
-        global.__ocNightshift = nightshiftApi;
+        global.__ocNightshift = { ...nightshiftApi, taskRunners };
 
         // -------------------------------------------------------------------
         // HOOK: agent_end — Detect good night / morning, track activity
