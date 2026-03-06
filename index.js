@@ -301,6 +301,7 @@ module.exports = {
          * Other plugins can register task runners.
          */
         const taskRunners = new Map();
+        global.__ocNightshift = global.__ocNightshift || {}; global.__ocNightshift.taskRunners = taskRunners;
 
         function registerTaskRunner(taskType, runner) {
             taskRunners.set(taskType, runner);
