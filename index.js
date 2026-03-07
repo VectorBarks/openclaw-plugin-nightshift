@@ -483,6 +483,111 @@ module.exports = {
             respond(true, { timezone: state.timezone });
         });
 
+        // ── SLASH COMMAND: /nightshift-status ────────────────────────────
+        if (api.registerCommand) {
+            api.registerCommand({
+                name: 'nightshift-status',
+                description: 'Nightshift Queue-Status anzeigen',
+                acceptsArgs: false,
+                requireAuth: true,
+                handler: async (ctx) => {
+                    const state = getAgentState('saphira');
+                    const queueLen = state.taskQueue ? state.taskQueue.length : 0;
+                    const processing = state.isProcessing ? `⚙️ Läuft gerade: ${state.currentTask?.type || '?'}` : '💤 Idle';
+                    const cycles = state.cyclesThisNight || 0;
+                    const runners = [...taskRunners.keys()].join(', ') || 'keine';
+                    const taskList = queueLen > 0
+                        ? state.taskQueue.map((t, i) => `  ${i + 1}. ${t.type} (prio ${t.priority})`).join('\n')
+                        : '  (leer)';
+                    return {
+                        text: `🌙 Nightshift Status\n\nStatus: ${processing}\nZyklen heute: ${cycles}\nQueue (${queueLen}):\n${taskList}\nRunner: ${runners}`,
+                    };
+                },
+            });
+        }
+
+        // ── SLASH COMMAND: /nightshift-run ────────────────────────────────
+        if (api.registerCommand) {
+            api.registerCommand({
+                name: 'nightshift-run',
+                description: 'Force one Nightshift processing cycle (bypasses office hours)',
+                acceptsArgs: false,
+                requireAuth: true,
+                handler: async (ctx) => {
+                    const state = getAgentState('saphira');
+                    const task = state.getNextTask();
+                    if (!task) {
+                        return { text: '🌙 Nightshift: Queue leer — nichts zu verarbeiten.' };
+                    }
+                    if (state.isProcessing) {
+                        return { text: '⏳ Nightshift läuft bereits.' };
+                    }
+                    state.isProcessing = true;
+                    state.currentTask = task;
+                    try {
+                        const runner = getTaskRunner(task.type);
+                        if (!runner) {
+                            state.isProcessing = false;
+                            state.currentTask = null;
+                            return { text: `❌ Kein Runner für Task-Typ: ${task.type}` };
+                        }
+                        api.logger.info(`[NightShift:CMD] Running task: ${task.id} (${task.type})`);
+                        const mockCtx = { agentId: 'saphira', sessionKey: 'agent:saphira' };
+                        await runner(task, mockCtx);
+                        state.processedTonight[task.type] = (state.processedTonight[task.type] || 0) + 1;
+                        state.cyclesThisNight++;
+                        return { text: `✅ Nightshift: Task "${task.id}" (${task.type}) ausgeführt.` };
+                    } catch (err) {
+                        api.logger.error(`[NightShift:CMD] Task failed: ${err.message}`);
+                        return { text: `❌ Nightshift Fehler: ${err.message}` };
+                    } finally {
+                        state.isProcessing = false;
+                        state.currentTask = null;
+                    }
+                },
+            });
+        }
+
+        // ── FORCE RUN: bypass office hours for debugging ──────────────────
+        api.registerGatewayMethod('nightshift.forceRun', async ({ params, respond }) => {
+            const agentId = params?.agentId || 'saphira';
+            const state = getAgentState(agentId);
+
+            const task = state.getNextTask();
+            if (!task) {
+                respond(true, { status: 'no_tasks', message: 'Queue is empty — nothing to process.' });
+                return;
+            }
+
+            if (state.isProcessing) {
+                respond(false, { status: 'busy', message: 'Already processing a task.' });
+                return;
+            }
+
+            state.isProcessing = true;
+            state.currentTask = task;
+
+            try {
+                const runner = getTaskRunner(task.type);
+                if (runner) {
+                    api.logger.info(`[NightShift:FORCE] Running task: ${task.id} (${task.type})`);
+                    const mockCtx = { agentId, sessionKey: `agent:${agentId}` };
+                    await runner(task, mockCtx);
+                    state.processedTonight[task.type] = (state.processedTonight[task.type] || 0) + 1;
+                    state.cyclesThisNight++;
+                    respond(true, { status: 'ok', taskId: task.id, type: task.type });
+                } else {
+                    respond(false, { status: 'no_runner', message: `No runner registered for task type: ${task.type}` });
+                }
+            } catch (err) {
+                api.logger.error(`[NightShift:FORCE] Task failed: ${err.message}`);
+                respond(false, { status: 'error', message: err.message });
+            } finally {
+                state.isProcessing = false;
+                state.currentTask = null;
+            }
+        });
+
         api.logger.info('Night shift scheduler registered — heavy processing during off-hours only');
     }
 };
