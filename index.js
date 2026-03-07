@@ -531,6 +531,8 @@ module.exports = {
                             state.currentTask = null;
                             return { text: `❌ Kein Runner für Task-Typ: ${task.type}` };
                         }
+                        // Mark task as manual to bypass schedule checks
+                        task.source = 'manual';
                         api.logger.info(`[NightShift:CMD] Running task: ${task.id} (${task.type})`);
                         const mockCtx = { agentId: 'saphira', sessionKey: 'agent:saphira' };
                         await runner(task, mockCtx);
@@ -570,6 +572,8 @@ module.exports = {
             try {
                 const runner = getTaskRunner(task.type);
                 if (runner) {
+                    // Mark task as manual to bypass schedule checks
+                    task.source = 'manual';
                     api.logger.info(`[NightShift:FORCE] Running task: ${task.id} (${task.type})`);
                     const mockCtx = { agentId, sessionKey: `agent:${agentId}` };
                     await runner(task, mockCtx);
