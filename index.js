@@ -555,10 +555,18 @@ module.exports = {
                         task.source = 'manual';
                         api.logger.info(`[NightShift:CMD] Running task: ${task.id} (${task.type})`);
                         const mockCtx = { agentId: 'saphira', sessionKey: 'agent:saphira' };
-                        await runner(task, mockCtx);
-                        state.processedTonight[task.type] = (state.processedTonight[task.type] || 0) + 1;
-                        state.cyclesThisNight++;
-                        return { text: `✅ Nightshift: Task "${task.id}" (${task.type}) ausgeführt.` };
+                        // Run async in background — don't await (LLM calls take too long for command timeout)
+                        runner(task, mockCtx).then(() => {
+                            state.processedTonight[task.type] = (state.processedTonight[task.type] || 0) + 1;
+                            state.cyclesThisNight++;
+                            api.logger.info(`[NightShift:CMD] Task completed: ${task.id}`);
+                        }).catch(err => {
+                            api.logger.error(`[NightShift:CMD] Task failed: ${err.message}`);
+                        }).finally(() => {
+                            state.isProcessing = false;
+                            state.currentTask = null;
+                        });
+                        return { text: `⚙️ Nightshift: Task "${task.id}" (${task.type}) gestartet — läuft im Hintergrund.` };
                     } catch (err) {
                         api.logger.error(`[NightShift:CMD] Task failed: ${err.message}`);
                         return { text: `❌ Nightshift Fehler: ${err.message}` };
