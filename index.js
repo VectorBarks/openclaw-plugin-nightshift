@@ -515,10 +515,30 @@ module.exports = {
                 requireAuth: true,
                 handler: async (ctx) => {
                     const state = getAgentState('saphira');
-                    const task = state.getNextTask();
+                    let task = state.getNextTask();
+
+                    // If queue is empty, check for pending contemplation passes
                     if (!task) {
-                        return { text: '🌙 Nightshift: Queue leer — nichts zu verarbeiten.' };
+                        // Try to get contemplation state and check for due passes
+                        const contemplationState = global.__ocContemplation?.getState?.('saphira');
+                        if (contemplationState?.store?.getDuePass) {
+                            const duePass = contemplationState.store.getDuePass(Date.now(), true); // forceRun=true
+                            if (duePass) {
+                                // Queue a contemplation task with manual source
+                                global.__ocNightshift.queueTask('saphira', {
+                                    type: 'contemplation',
+                                    priority: 50,
+                                    source: 'manual'
+                                });
+                                task = state.getNextTask(); // Get the task we just queued
+                            }
+                        }
+
+                        if (!task) {
+                            return { text: '🌙 Nightshift: Queue leer — nichts zu verarbeiten.' };
+                        }
                     }
+
                     if (state.isProcessing) {
                         return { text: '⏳ Nightshift läuft bereits.' };
                     }
@@ -555,10 +575,29 @@ module.exports = {
             const agentId = params?.agentId || 'saphira';
             const state = getAgentState(agentId);
 
-            const task = state.getNextTask();
+            let task = state.getNextTask();
+
+            // If queue is empty, check for pending contemplation passes
             if (!task) {
-                respond(true, { status: 'no_tasks', message: 'Queue is empty — nothing to process.' });
-                return;
+                // Try to get contemplation state and check for due passes
+                const contemplationState = global.__ocContemplation?.getState?(agentId);
+                if (contemplationState?.store?.getDuePass) {
+                    const duePass = contemplationState.store.getDuePass(Date.now(), true); // forceRun=true
+                    if (duePass) {
+                        // Queue a contemplation task with manual source
+                        global.__ocNightshift.queueTask(agentId, {
+                            type: 'contemplation',
+                            priority: 50,
+                            source: 'manual'
+                        });
+                        task = state.getNextTask(); // Get the task we just queued
+                    }
+                }
+
+                if (!task) {
+                    respond(true, { status: 'no_tasks', message: 'Queue is empty — nothing to process.' });
+                    return;
+                }
             }
 
             if (state.isProcessing) {
