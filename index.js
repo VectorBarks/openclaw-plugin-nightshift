@@ -588,7 +588,7 @@ module.exports = {
             // If queue is empty, check for pending contemplation passes
             if (!task) {
                 // Try to get contemplation state and check for due passes
-                const contemplationState = global.__ocContemplation?.getState?(agentId);
+                const contemplationState = global.__ocContemplation?.getState?.(agentId);
                 if (contemplationState?.store?.getDuePass) {
                     const duePass = contemplationState.store.getDuePass(Date.now(), true); // forceRun=true
                     if (duePass) {
