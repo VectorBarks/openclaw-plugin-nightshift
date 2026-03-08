@@ -363,7 +363,7 @@ module.exports = {
         // HOOK: heartbeat — Process tasks during office hours
         // -------------------------------------------------------------------
 
-        api.on('heartbeat', async (event, ctx) => {
+        api.on('agent_end', async (event, ctx) => {
             const state = getAgentState(ctx.agentId);
 
             // Check if we should process
