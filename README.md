@@ -236,6 +236,32 @@ Each plugin is independent and useful on its own. Together they form a complete 
 
 See [openclaw-metacognitive-suite](https://github.com/CoderofTheWest/openclaw-metacognitive-suite) for the full picture.
 
+## Startup Throttle
+
+After a gateway restart, plugins may have accumulated due tasks (e.g., contemplation passes that were scheduled during downtime). Without throttling, all due tasks would flood the queue simultaneously on startup.
+
+The contemplation plugin implements startup throttle behavior controlled by nightshift config:
+
+| Setting | Default | What It Does |
+|---|---|---|
+| `startupBehavior.maxQueueOnStartup` | `1` | Maximum tasks queued from backlog on gateway restart |
+| `startupBehavior.startupDelayMs` | `5000` | Delay before startup queue scan runs (lets plugins initialize) |
+
+This ensures only 1 task enters the queue on restart. The nightshift scheduler picks up remaining due tasks naturally during the next processing cycle.
+
+**Note:** The actual throttle logic lives in `contemplation/index.js` (`queueDueInquiriesOnStartup`). The config values here serve as the canonical reference for the behavior.
+
+## Cron Integration
+
+The following crons work alongside the nightshift scheduler:
+
+| Cron | Schedule | Purpose |
+|---|---|---|
+| `metacog-monday-review` | Mon 09:30 CET | Reviews crystallization candidates + blocked log |
+| `metacog-weekly-growth-check` | Fri 18:00 CET | Checks weekly growth vector creation |
+| `metacog-monthly-calibration` | 1st Mon/month 10:00 CET | Full chain calibration reminder |
+| `metacog-weekly-pattern-scan` | Sun 03:30 CET | Pattern scan → new contemplation inquiries |
+
 ## License
 
 MIT
