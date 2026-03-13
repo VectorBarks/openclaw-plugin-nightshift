@@ -347,13 +347,13 @@ module.exports = {
             if (detectGoodNight(userText)) {
                 state.goodNightTime = new Date();
                 state.resetNightlyCounters();
-                api.logger.info(`[NightShift:${state.agentId}] Good night detected — office hours starting in ${config.schedule?.goodNightBufferMinutes || 30} minutes`);
+                api.logger.info(`[NightShift:${state.agentId}] Good night detected — nightshift window starting in ${config.schedule?.goodNightBufferMinutes || 30} minutes`);
             }
 
             if (detectMorning(userText)) {
                 state.lastMorningGreeting = new Date().toISOString();
                 state.goodNightTime = null; // Reset good night
-                api.logger.info(`[NightShift:${state.agentId}] Morning detected — office hours ended`);
+                api.logger.info(`[NightShift:${state.agentId}] Morning detected — nightshift window ended`);
             }
 
             state.saveState();
