@@ -324,16 +324,95 @@ module.exports = {
         global.__ocNightshift = { ...nightshiftApi, taskRunners };
 
         // -------------------------------------------------------------------
+        // Helper: Detect heartbeat messages (not real user activity)
+        // -------------------------------------------------------------------
+        function isHeartbeatMessage(text) {
+            if (!text || typeof text !== 'string') return false;
+            const lower = text.toLowerCase();
+            return lower.includes('heartbeat') || lower.includes('heartbeat_ok')
+                || lower.includes('heartbeat prompt:') || lower.includes('[heartbeat]');
+        }
+
+        // -------------------------------------------------------------------
+        // TIMER: Independent processing loop (primary nightshift driver)
+        // -------------------------------------------------------------------
+        const cycleIntervalMs = config.processing?.cycleIntervalMs || 20000;
+        const processingTimer = setInterval(async () => {
+            // Check all known agent states
+            for (const [agentId, state] of agentStates) {
+                try {
+                    if (!state.isInOfficeHours()) continue;
+                    if (state.isProcessing) continue;
+
+                    const maxCycles = config.processing?.maxCyclesPerNight || 10;
+                    if (state.cyclesThisNight >= maxCycles) continue;
+
+                    // Timer does NOT check isUserActive() — that's the whole point:
+                    // During office hours, the timer drives processing independently.
+
+                    const task = state.getNextTask();
+                    if (!task) continue;
+
+                    // Check task-specific limits
+                    const taskConfig = config.tasks?.[task.type];
+                    if (taskConfig?.maxPerNight) {
+                        const processed = state.processedTonight[task.type] || 0;
+                        if (processed >= taskConfig.maxPerNight) {
+                            api.logger.debug(`[NightShift:Timer:${agentId}] Task type ${task.type} hit max per night`);
+                            continue;
+                        }
+                    }
+
+                    // Run the task
+                    state.isProcessing = true;
+                    state.currentTask = task;
+
+                    const runner = getTaskRunner(task.type);
+                    if (runner) {
+                        api.logger.info(`[NightShift:Timer:${agentId}] Running task: ${task.id} (${task.type})`);
+                        const mockCtx = { agentId, sessionKey: `agent:${agentId}` };
+                        try {
+                            await runner(task, mockCtx);
+                            state.processedTonight[task.type] = (state.processedTonight[task.type] || 0) + 1;
+                        } catch (error) {
+                            api.logger.error(`[NightShift:Timer:${agentId}] Task failed: ${task.id}`, error.message);
+                            task.attempts++;
+                            if (task.attempts < 3) {
+                                state.taskQueue.push(task);
+                            }
+                        } finally {
+                            state.isProcessing = false;
+                            state.currentTask = null;
+                            state.cyclesThisNight++;
+                            state.saveState();
+                        }
+                    } else {
+                        api.logger.warn(`[NightShift:Timer:${agentId}] No runner for task type: ${task.type}`);
+                        state.isProcessing = false;
+                        state.currentTask = null;
+                    }
+                } catch (err) {
+                    api.logger.error(`[NightShift:Timer:${agentId}] Unexpected error:`, err.message);
+                }
+            }
+        }, cycleIntervalMs);
+
+        // Cleanup timer on plugin unload
+        if (api.onCleanup) {
+            api.onCleanup(() => {
+                clearInterval(processingTimer);
+                api.logger.info('[NightShift] Processing timer cleared');
+            });
+        }
+
+        // -------------------------------------------------------------------
         // HOOK: agent_end — Detect good night / morning, track activity
         // -------------------------------------------------------------------
 
         api.on('agent_end', async (event, ctx) => {
             const state = getAgentState(ctx.agentId);
 
-            // Update last activity
-            state.lastUserActivity = Date.now();
-
-            // Check for good night / morning
+            // Extract user text for analysis
             const messages = event.messages || [];
             const lastUser = [...messages].reverse().find(m => m?.role === 'user');
             const rawContent = lastUser?.content;
@@ -344,6 +423,14 @@ module.exports = {
                     ? rawContent.filter(b => b?.type === 'text').map(b => b.text).join(' ')
                     : '';
 
+            // Only update lastUserActivity for REAL user messages, not heartbeats
+            // Heartbeats fire every 15 min and would otherwise make the user appear
+            // permanently "active", blocking all nightshift processing.
+            if (!isHeartbeatMessage(userText)) {
+                state.lastUserActivity = Date.now();
+            }
+
+            // Check for good night / morning (these are always real user messages)
             if (detectGoodNight(userText)) {
                 state.goodNightTime = new Date();
                 state.resetNightlyCounters();
