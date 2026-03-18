@@ -334,6 +334,24 @@ module.exports = {
         }
 
         // -------------------------------------------------------------------
+        // Helper: Detect real user sessions (not heartbeats/cron/inter-session)
+        // -------------------------------------------------------------------
+        function isUserSession(ctx, event) {
+            // Inter-session messages (cron workers, sub-agents forwarding)
+            if (ctx?.sourceSession) return false;
+
+            // Heartbeat prompts — not real user activity
+            const prompt = typeof event?.prompt === 'string' ? event.prompt : '';
+            if (isHeartbeatMessage(prompt)) return false;
+
+            // Only count telegram/webchat sessions as real user activity
+            const key = ctx?.sessionKey || '';
+            if (key.includes('cron:') || key.includes('subagent:')) return false;
+
+            return key.includes('telegram') || key.includes('webchat');
+        }
+
+        // -------------------------------------------------------------------
         // TIMER: Independent processing loop (primary nightshift driver)
         // -------------------------------------------------------------------
         const cycleIntervalMs = config.processing?.cycleIntervalMs || 20000;
@@ -524,17 +542,17 @@ module.exports = {
         api.on('before_agent_start', async (event, ctx) => {
             const state = getAgentState(ctx.agentId);
 
-            // If we're processing, pause it
-            if (state.isProcessing && state.currentTask) {
-                api.logger.info(`[NightShift:${state.agentId}] Pausing task for user activity: ${state.currentTask.id}`);
-                // Save current task state for resume
-                state.currentTask.paused = true;
-                state.currentTask.pausedAt = Date.now();
-                // The task runner should check for this and yield
-            }
+            // Only pause processing and update activity for real user sessions
+            if (isUserSession(ctx, event)) {
+                // If we're processing, pause it
+                if (state.isProcessing && state.currentTask) {
+                    api.logger.info(`[NightShift:${state.agentId}] Pausing task for user activity: ${state.currentTask.id}`);
+                    state.currentTask.paused = true;
+                    state.currentTask.pausedAt = Date.now();
+                }
 
-            // Update activity timestamp
-            state.lastUserActivity = Date.now();
+                state.lastUserActivity = Date.now();
+            }
         });
 
         // -------------------------------------------------------------------
