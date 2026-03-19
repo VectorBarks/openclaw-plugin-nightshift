@@ -1,0 +1,7 @@
+{
+  "_comment": "Private overrides for nightshift plugin. Copy to config.local.json and customize.",
+  "schedule": {
+    "startHour": 2,
+    "endHour": 6
+  }
+}
