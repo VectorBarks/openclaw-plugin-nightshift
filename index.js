@@ -254,6 +254,8 @@ module.exports = {
             getNextTask() {
                 // Filter out tasks that hit max attempts
                 this.taskQueue = this.taskQueue.filter(t => t.attempts < 3);
+                // Re-sort by priority (descending) — retry-pushed tasks may break insertion order
+                this.taskQueue.sort((a, b) => (b.priority || 0) - (a.priority || 0));
                 return this.taskQueue.shift();
             }
 
