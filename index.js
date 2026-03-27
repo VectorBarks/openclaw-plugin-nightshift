@@ -540,10 +540,10 @@ module.exports = {
         });
 
         // -------------------------------------------------------------------
-        // HOOK: before_agent_start — Pause processing on user activity
+        // HOOK: before_model_resolve — Pause processing on user activity
         // -------------------------------------------------------------------
 
-        api.on('before_agent_start', async (event, ctx) => {
+        api.on('before_model_resolve', async (event, ctx) => {
             const state = getAgentState(ctx.agentId);
 
             // Only pause processing and update activity for real user sessions
